@@ -8,13 +8,13 @@ public enum Mod { Prova, Onay, Oto } // Prova: doldur, tıklama | Onay: sor, tı
 
 public class Cfg
 {
-    public string Alan = "mmuhasebe.net";
-    public string[] Host = { "mmuhasebe.net", "*.mmuhasebe.net" };
-    public string[] Kur = { "mmuhasebe.net" };      // cPanel'de sertifikanın kurulacağı siteler (Alan Adı listesindeki adlar)
-    public string HostingNo = "175402E8C2CA";
+    public string Alan = "example.com";
+    public string[] Host = { "example.com", "*.example.com" };
+    public string[] Kur = { "example.com" };      // cPanel'de sertifikanın kurulacağı siteler (Alan Adı listesindeki adlar)
+    public string HostingNo = "";                  // Natro hosting hesap kodu (Web Hosting Hesapları listesinde); boşsa ilk satır
     public string Mail = "", EabKid = "", EabKeyEnc = "", EabKeyDuz = ""; // EabKeyDuz'a yaz → ilk açılışta şifrelenip silinir
-    public string Wacs = @"C:\win-acme\wacs.exe", Pem = @"C:\ssl\out", Ad = "mmuhasebe";
-    public string TxtAdBicim = "kisa";              // kisa: _acme-challenge | tam: _acme-challenge.mmuhasebe.net
+    public string Wacs = @"C:\win-acme\wacs.exe", Pem = @"C:\ssl\out", Ad = "site";
+    public string TxtAdBicim = "kisa";              // kisa: _acme-challenge | tam: _acme-challenge.example.com
     public string? NatroTxtAd, NatroTxtDeger, NatroTxtKaydet; // null → sezgisel; keşiften sonra seçici gir
     public int Esik = 30;                           // bitişe kaç gün kala uyar
     public bool TxtOto = false;                     // true: TXT ekle/sil onaysız (cPanel yüklemesi her zaman onaylı)

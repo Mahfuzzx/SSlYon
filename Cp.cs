@@ -34,7 +34,7 @@ public static class Cp
             var fb = await b.Bul("CABUNDLE", "#sslcab", "textarea[name=cabundle]", "textarea >> nth=2");
             if (dom == null || fc == null || fk == null) { hep = false; continue; }
 
-            // Seçenek metinleri "app.mmuhasebe.net (+ subdomains…)" gibi ekli; değer ya da metnin başı tam alan olmalı
+            // Seçenek metinleri "app.example.com (+ subdomain: www)" gibi ekli; değer ya da metnin başı tam alan olmalı
             var ops = await dom.EvaluateAsync<string[][]>("s=>[...s.options].map(o=>[o.value,o.text.trim()])");
             Log.W("Alan seçenekleri:\n" + string.Join("\n", ops.Select(o => $"  [{o[0]}] {o[1]}")));
             var rx = new Regex($@"^{Regex.Escape(d)}(\s|\(|$)", RegexOptions.IgnoreCase);

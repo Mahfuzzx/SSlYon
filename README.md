@@ -1,39 +1,73 @@
-# SslYon — ZeroSSL + win-acme + Natro yarı otomatik SSL
+# SslYon
+
+Natro paylaşımlı hosting (cPanel) üzerinde **ZeroSSL** wildcard sertifikasını **win-acme** ile yarı otomatik alıp yenileyen Windows aracı.
+
+Natro'da cPanel API/SSH ve AutoSSL kapalı olduğu için tam otomasyon mümkün değil. SslYon kalan elle işleri tarayıcı otomasyonuyla (Playwright) üstlenir:
+
+1. win-acme DNS-01 doğrulaması ister → SslYon Natro DNS Yönetimi'ne `_acme-challenge` TXT kaydını ekler, DNS'te yayılmasını bekler, doğrulamadan sonra siler.
+2. Sertifika PEM olarak yazılır → SslYon cPanel **SSL/TLS → SSL sitelerini yönetin** formunu her site için doldurur ve onayınla yükler.
+3. Tray'de çalışır, bitiş tarihini izler, süre azalınca bildirim verir.
+
+> ⚠️ **Sorumluluk reddi:** Natro veya cPanel ile bağlantısı yoktur. Araç, Natro müşteri panelini kendi hesabınızda tarayıcı otomasyonuyla kullanır. Panel arayüzü değişirse seçiciler bozulabilir. Kullanmadan önce sağlayıcınızın kullanım koşullarını kontrol edin. Tüm risk kullanıcıya aittir (bkz. [LICENSE](LICENSE)).
+
+## Gereksinimler
+- Windows 10/11, .NET 8 SDK
+- [win-acme](https://www.win-acme.com/) (ör. `C:\win-acme\wacs.exe`)
+- ZeroSSL hesabı → Developer → **EAB Credentials** (ücretsiz ACME, wildcard dahil)
+- Natro hosting, alan adının DNS'i Natro'da
 
 ## Kurulum
-1. .NET 8 SDK, Microsoft Edge ve win-acme (ör. `C:\win-acme\wacs.exe`) kurulu olmalı.
-2. `dotnet build` → `bin\Debug\net8.0-windows\SslYon.exe`, ardından bir kez Chromium'u indir:
-   `powershell -ExecutionPolicy Bypass -File bin\Debug\net8.0-windows\playwright.ps1 install chromium`
-   (Edge yönetici yetkisiyle açılmayı reddettiği için varsayılan tarayıcı Chromium; `"Tarayici": "msedge"` yalnızca yönetici olmadan çalışır.)
-3. İlk açılışta `%AppData%\SslYon\ayar.json` oluşur. **Ayarlar** düğmesiyle aç:
-   - `Mail`, `EabKid`, `EabKeyDuz` (ZeroSSL'in verdiği gibi yapıştır; ilk açılışta DPAPI ile şifrelenip silinir)
-   - `Wacs`, `Pem`, `Kur` (cPanel Alan Adı listesindeki adlar)
+```
+dotnet publish -c Release -o C:\SslYon
+```
+1. `C:\SslYon\SslYon.exe`'yi **yönetici olarak** çalıştırın. İlk tarayıcı açılışında Playwright Chromium kendiliğinden indirilir (~150 MB).
+   - Uygulamayı sabit bir klasörden çalıştırın: win-acme script yolunu yenileme kaydına yazar.
+2. **Ayarlar** → `%AppData%\SslYon\ayar.json`:
 
-## Prova sırası
+| Alan | Açıklama |
+|---|---|
+| `Alan` | Ana alan adı (`example.com`) |
+| `Host` | Sertifikadaki adlar (`example.com`, `*.example.com`) |
+| `Kur` | cPanel'de sertifikanın kurulacağı siteler (Alan Adı listesindeki adlar; ör. ek alt alan siteleri) |
+| `HostingNo` | Natro *Web Hosting Hesapları* listesindeki hesap kodu |
+| `Mail`, `EabKid`, `EabKeyDuz` | ZeroSSL ACME bilgileri. `EabKeyDuz` ilk açılışta DPAPI ile şifrelenip silinir |
+| `Wacs`, `Pem`, `Ad` | wacs.exe yolu, PEM klasörü, dosya öneki |
+| `TxtOto` | `true`: TXT kayıtları onaysız eklenir/silinir |
+| `Esik` | Bitişe kaç gün kala uyarı verilsin (varsayılan 30) |
+
+3. Tarayıcı açılınca Natro'ya bir kez giriş yapın; oturum profilde saklanır (şifre uygulamada tutulmaz).
+
+## Kullanım
 | Düğme | Ne yapar | Kalıcı değişiklik |
 |---|---|---|
-| 1 · Prova: Natro DNS | Giriş → Hosting → Yönet → mmuhasebe.net ▸ Web Sitesi ▸ DNS Yönetimi → Yeni Kayıt (TXT) → iki sahte token doldurur, Kaydet'i kırmızı çerçeveler | Yok |
-| 2 · Prova: cPanel | cPanel'e Bağlan → ssl/install.html → alan seç, sahte CRT/KEY/CABUNDLE doldur, Yükle'yi çerçeveler | Yok |
-| 3 · Prova: uçtan uca | win-acme `--test` (Let's Encrypt staging). TXT **gerçekten kaydedilir** (her tıklamada sorar), cPanel yalnızca doldurulur | Natro'da TXT kaydı |
-| 4 · Sertifika al | ZeroSSL'den gerçek sertifika | TXT + sertifika |
-| 5 · cPanel'e yükle | Son PEM'leri kurar (Yükle'ye basmadan sorar) | Kurulum |
+| 1 · Prova: Natro DNS | TXT formunu iki sahte token ile doldurur, kaydetmez | Yok |
+| 2 · Prova: cPanel | Sahte sertifikayla yükleme formunu doldurur, yüklemez | Yok |
+| 3 · Prova: uçtan uca | Let's Encrypt **staging** ile tam akış; cPanel yalnızca doldurulur | Geçici TXT kayıtları |
+| 4 · Sertifika al (ZeroSSL) | Gerçek sertifika; ilk sefer yeni kayıt, sonrakiler `--renew --force` | TXT + sertifika |
+| 5 · cPanel'e yükle | Son PEM'leri her siteye kurar (onaylı) | Kurulum |
+| Kontrol | Sitelerin canlı sertifika bitiş tarihini gösterir | Yok |
 
-Her adımda `%AppData%\SslYon\log\` altına log ve ekran görüntüsü düşer. `KEŞİF[...]` satırları sayfadaki görünür alanları (etiket, id, name) listeler.
+- **Oturumda başlat:** Görev Zamanlayıcı'ya oturum açılışında, en yüksek ayrıcalıkla, tray'de gizli başlayan bir görev ekler.
+- Kalıcı her tıklama (Değiştir, Sertifika Yükle, Sil) tek bir kapıdan geçer: prova modunda tıklanmaz, kırmızı çerçeve + ekran görüntüsü alınır.
+- Loglar ve ekran görüntüleri: `%AppData%\SslYon\log\` (win-acme'nin çağırdığı script modu `script-*.txt`'ye yazar).
+
+## Nasıl çalışır
+- win-acme `--validation script --dnsscript SslYon.exe` ile çağırır; SslYon `create|delete {Identifier} {RecordName} {Token}` argümanlarıyla script modunda açılır.
+- DNS sayfası Natro'nun `HostingPanelineGit_v2.asp?...zoneName=<alan>` bağlantısından açılır; açılan sayfa başka alana aitse işlem durur (güvenlik kilidi).
+- TXT yayılması Google, Cloudflare ve alanın yetkili NS'lerinden kontrol edilir.
+- `settings.json`'da `Script.Timeout` 3600 sn'ye çekilir (varsayılan 600 sn elle onaya yetmeyebilir).
+- Edge yönetici yetkisiyle açılmadığından varsayılan tarayıcı Playwright Chromium'dur (`"Tarayici": "msedge"` yalnızca yetkisiz çalıştırmada).
 
 ## İnce ayar
-Natro TXT formu keşiften kesinleşti: `input#Name`, `textarea#Value`, `Değiştir` düğmesi (varsayılan). Natro değiştirirse keşif çıktısına göre `ayar.json`a yaz:
+Natro formu değişirse ilgili adımın `KEŞİF[...]` log çıktısındaki id/name'e göre `ayar.json`'a seçici yazın:
 ```json
-"NatroTxtAd": "#txtHost", "NatroTxtDeger": "#txtValue", "NatroTxtKaydet": "#btnTxtKaydet"
+"NatroTxtAd": "#Name", "NatroTxtDeger": "#Value", "NatroTxtKaydet": "button:has-text('Değiştir')"
 ```
-Natro ad alanına tam ad (`_acme-challenge.mmuhasebe.net`) istiyorsa `"TxtAdBicim": "tam"` yap.
-
-## Kalıcı kullanım
-- Release derle, çıktıyı `C:\SslYon\` gibi sabit bir klasöre kopyala, oradan yönetici olarak çalıştır (win-acme script yolunu yenileme kaydına yazar).
-- **Oturumda başlat** kutusu: Görev Zamanlayıcı'ya `SslYon` görevi ekler (oturum açılışı, en yüksek ayrıcalık, `--tray` ile gizli). Exe taşınırsa kutuyu kapatıp aç.
-- **TXT otomatik** kutusu: TXT ekle/sil onaysız olur; cPanel'e yükleme her zaman onaylıdır.
-- Yenileme: bildirim gelince **4 · Sertifika al** → `--renew --force` (kayıtlı ayarlarla), ardından cPanel yükleme onayları.
+Ad alanı tam ad istiyorsa (`_acme-challenge.example.com`) `"TxtAdBicim": "tam"`.
 
 ## Notlar
-- win-acme bu exe'yi `--dnsscript` olarak çağırır (`create|delete {Identifier} {RecordName} {Token}`); mod `SSLYON_MOD` ortam değişkeniyle geçer.
-- `settings.json`'da `Script.Timeout` 3600'e çekilir (varsayılan 600 sn senin TXT girmene yetmeyebilir).
-- Zamanlanmış görev kurulmaz (`--notaskscheduler`); uygulama 6 saatte bir bitiş tarihini kontrol edip 30 gün kala bildirim verir.
+- Dizüstünde Görev Zamanlayıcı görevi pildeyken başlamayabilir: görev → Koşullar → "Yalnızca AC güç kaynağındaysa başlat" işaretini kaldırın.
+- Eski staging kaydını silmek için: `wacs --cancel --id <Ad>-test --baseuri https://acme-staging-v02.api.letsencrypt.org/`
+
+## Lisans
+[MIT](LICENSE). Bağımlılıklar: Microsoft.Playwright (Apache-2.0), DnsClient (Apache-2.0), System.Management ve System.Security.Cryptography.ProtectedData (MIT). win-acme (Apache-2.0) ayrıca indirilir, repoya dahil değildir.
