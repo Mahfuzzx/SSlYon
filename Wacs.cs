@@ -20,9 +20,12 @@ public static class Wacs
         }
         var j = JsonNode.Parse(File.ReadAllText(f), null, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true })!;
         (j["Script"] ??= new JsonObject())["Timeout"] = 3600;
-        (j["Validation"] ??= new JsonObject())["PreValidateDnsRetryCount"] = 20;
+        var v = (j["Validation"] ??= new JsonObject()); v["PreValidateDnsRetryCount"] = 20;
+        v["DisableMultiThreading"] = false; // true iken --dnsscriptparallelism yok sayılır, kök ve wildcard yine tek tek doğrulanır
+        // ZeroSSL doğrulamayı dakikalarca "processing"de tutabiliyor; varsayılan 15×5 sn yetmiyor → 60×10 sn
+        var ac = (j["Acme"] ??= new JsonObject()); ac["RetryCount"] = 60; ac["RetryInterval"] = 10;
         File.WriteAllText(f, j.ToJsonString(new() { WriteIndented = true }));
-        Log.W("wacs settings.json: Script.Timeout=3600, PreValidateDnsRetryCount=20");
+        Log.W("wacs settings.json: Script.Timeout=3600, PreValidateDnsRetryCount=20, DisableMultiThreading=false, Acme.RetryCount=60, Acme.RetryInterval=10");
     }
 
     public static string PemDir(Cfg c, bool test) => test ? c.Pem + "-test" : c.Pem;
@@ -37,6 +40,9 @@ public static class Wacs
         string a = test || !Var(c, test) // staging provası her seferinde baştan (yarım kalmış kayıt sorun olmasın)
             ? $"--source manual --host {string.Join(",", c.Host)} --id {id} --emailaddress {c.Mail} --accepttos" +
               $" --validationmode dns-01 --validation script --dnsscript \"{Environment.ProcessPath}\"" +
+              // 2: kök ve wildcard TXT'leri önce birlikte eklenir, sonra birlikte doğrulanır. Aynı ad (_acme-challenge) için
+              // tek tek ekle-doğrula-sil yapınca CA'nın çözücüsü ilk cevabı (Natro TTL 3600) önbelleğe alıp ikinciyi görmüyor
+              " --dnsscriptparallelism 2" +
               $" --store pemfiles --pemfilespath \"{PemDir(c, test)}\" --pemfilesname {c.Ad} --notaskscheduler --verbose" +
               bu + (test ? "" : $" --eab-key-identifier {c.EabKid} --eab-key {c.EabKey}")
             : $"--renew --id {id} --force --verbose" + bu;

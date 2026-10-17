@@ -8,10 +8,11 @@ namespace SslYon;
 
 public static class Ag
 {
-    // TXT: Google, Cloudflare ve alanın yetkili NS'lerinde görünüyor mu?
+    // TXT: alanın yetkili NS'lerinde, sonra Google ve Cloudflare'de görünüyor mu?
+    // Yetkililer önce: kayıt NS'e ulaşmadan genel çözücüye sorarsak "yok" cevabı 1 saat önbelleğe girer (Natro SOA 3600)
     public static async Task<bool> TxtVar(string ad, string tok, string zone)
     {
-        var ips = new List<IPAddress> { IPAddress.Parse("8.8.8.8"), IPAddress.Parse("1.1.1.1") };
+        var ips = new List<IPAddress>();
         try
         {
             var g = new LookupClient(IPAddress.Parse("8.8.8.8"));
@@ -19,6 +20,7 @@ public static class Ag
                 foreach (var a in (await g.QueryAsync(ns.NSDName.Value, QueryType.A)).Answers.ARecords()) ips.Add(a.Address);
         }
         catch (Exception e) { Log.W("NS bulunamadı: " + e.Message); }
+        ips.Add(IPAddress.Parse("8.8.8.8")); ips.Add(IPAddress.Parse("1.1.1.1"));
 
         foreach (var ip in ips)
             try
@@ -39,15 +41,16 @@ public static class Ag
         Log.W("✗ TXT yayılma zaman aşımı"); return false;
     }
 
-    public static async Task<X509Certificate2?> Sertifika(string h)
+    // Sunucu o ada sertifika kurulu değilse varsayılanını verir → hata bilgisi de dönülür (ad uyuşmazlığı vb.)
+    public static async Task<(X509Certificate2 x, SslPolicyErrors e)?> Sertifika(string h)
     {
         try
         {
             using var t = new TcpClient(); await t.ConnectAsync(h, 443);
-            X509Certificate2? x = null;
-            using var s = new SslStream(t.GetStream(), false, (_, c, _, _) => { if (c != null) x = new X509Certificate2(c); return true; });
+            X509Certificate2? x = null; var e = SslPolicyErrors.None;
+            using var s = new SslStream(t.GetStream(), false, (_, c, _, pe) => { if (c != null) x = new X509Certificate2(c); e = pe; return true; });
             await s.AuthenticateAsClientAsync(h);
-            return x;
+            return x == null ? null : (x, e);
         }
         catch (Exception e) { Log.W($"SSL kontrol {h}: {e.Message}"); return null; }
     }

@@ -17,6 +17,17 @@ public class Fm : Form
         Controls.Add(t); Controls.Add(p);
         Log.On += s => { if (IsHandleCreated) BeginInvoke(() => t.AppendText(s.Replace("\n", "\r\n") + "\r\n")); };
 
+        // Site seçici: 1–5 düğmeleri seçili site için çalışır; açılınca ayar.json'dan tazelenir (Not Defteri'nde eklenen site görünsün)
+        var sc = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180, Margin = new(3, 4, 8, 3) };
+        void Doldur() { sc.Items.Clear(); foreach (var s in c.Siteler) sc.Items.Add(s.Alan); sc.SelectedItem = c.Alan; }
+        sc.DropDown += (_, _) => { c.Siteler = Cfg.Yukle().Siteler; c.Sec(c.Alan); Doldur(); };
+        sc.SelectedIndexChanged += (_, _) =>
+        {
+            if (sc.SelectedItem is not string a || a == c.Alan) return;
+            c.Sec(a); c.Secili = a; c.Kaydet(); Text = "SslYon — " + c.Alan; Log.W($"Site: {c.Alan} (Ad={c.Ad}, Kur={string.Join(", ", c.Kur)})");
+        };
+        Doldur(); p.Controls.Add(sc);
+
         B("1 · Prova: Natro DNS", ProvaDns);
         B("2 · Prova: cPanel", () => CpYukle(Ag.Sahte(c.Host), Mod.Prova));
         B("3 · Prova: uçtan uca (LE staging)", () => Al(true));
@@ -87,7 +98,7 @@ public class Fm : Form
             if ((x0.Contains("OneDrive", StringComparison.OrdinalIgnoreCase) || x0.Contains(@"\bin\", StringComparison.OrdinalIgnoreCase)) &&
                 MessageBox.Show(this, $"Uygulama geçici bir klasörden çalışıyor:\n{x0}\n\nwin-acme bu yolu yenileme kaydına yazar; exe taşınırsa yenileme bozulur. Önce C:\\SslYon gibi sabit bir yere kopyalayıp oradan çalıştırman önerilir.\n\nYine de devam edilsin mi?",
                     "SslYon", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
-            if (MessageBox.Show(this, "ZeroSSL'den gerçek sertifika alınacak. Devam?", "SslYon", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            if (MessageBox.Show(this, $"{c.Alan} için ZeroSSL'den gerçek sertifika alınacak ({string.Join(", ", c.Host)}). Devam?", "SslYon", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
         }
         Wacs.Ayarla(c);
         if (await Wacs.Calistir(c, test, c.TxtOto ? Mod.Oto : Mod.Onay) != 0) { Log.W("✗ wacs başarısız"); return; }
@@ -99,10 +110,17 @@ public class Fm : Form
 
     async Task Kontrol()
     {
-        foreach (var h in c.Kur)
+        foreach (var h in c.Siteler.SelectMany(s => s.Kur).Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            var x = await Ag.Sertifika(h); if (x == null) continue;
+            if (await Ag.Sertifika(h) is not var (x, e)) continue;
             var g = (int)(x.NotAfter - DateTime.Now).TotalDays;
+            if (e != System.Net.Security.SslPolicyErrors.None)
+            {   // tarih anlamsız: tarayıcı bu sertifikayı reddeder
+                var n = e.HasFlag(System.Net.Security.SslPolicyErrors.RemoteCertificateNameMismatch) ? $"ad uyuşmuyor (sertifika: {x.GetNameInfo(X509NameType.DnsName, false)})" : e.ToString();
+                Log.W($"✗ {h}: geçerli sertifika yok — {n}");
+                ni.ShowBalloonTip(10000, "SSL kurulu değil", $"{h}: {n}", ToolTipIcon.Error);
+                continue;
+            }
             Log.W($"{h}: veren={x.GetNameInfo(X509NameType.SimpleName, true)}, bitiş={x.NotAfter:dd.MM.yyyy} ({g} gün)");
             if (g <= c.Esik) ni.ShowBalloonTip(10000, "SSL yenileme zamanı", $"{h}: {g} gün kaldı", ToolTipIcon.Warning);
         }

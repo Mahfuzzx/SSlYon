@@ -26,12 +26,16 @@ dotnet publish -c Release -o C:\SslYon
 
 | Alan | Açıklama |
 |---|---|
-| `Alan` | Ana alan adı (`example.com`) |
-| `Host` | Sertifikadaki adlar (`example.com`, `*.example.com`) |
-| `Kur` | cPanel'de sertifikanın kurulacağı siteler (Alan Adı listesindeki adlar; ör. ek alt alan siteleri) |
-| `HostingNo` | Natro *Web Hosting Hesapları* listesindeki hesap kodu |
-| `Mail`, `EabKid`, `EabKeyDuz` | ZeroSSL ACME bilgileri. `EabKeyDuz` ilk açılışta DPAPI ile şifrelenip silinir |
-| `Wacs`, `Pem`, `Ad` | wacs.exe yolu, PEM klasörü, dosya öneki |
+| `Siteler[]` | Alan adı başına bir kayıt (aşağıdaki beş alan). Pencerenin solundaki listeden seçilen site için 1–5 düğmeleri çalışır |
+| ↳ `Alan` | Ana alan adı (`example.com`) |
+| ↳ `Host` | Sertifikadaki adlar (`example.com`, `*.example.com`) |
+| ↳ `Kur` | cPanel'de sertifikanın kurulacağı siteler (Alan Adı listesindeki adlar; ör. ek alt alan siteleri) |
+| ↳ `HostingNo` | Natro *Web Hosting Hesapları* listesindeki hesap kodu |
+| ↳ `Ad` | PEM dosya öneki ve win-acme kayıt id'si; **her sitede farklı olmalı** |
+| `Mail`, `EabKid`, `EabKeyDuz` | ZeroSSL ACME bilgileri (tüm siteler için ortak). `EabKeyDuz` ilk açılışta DPAPI ile şifrelenip silinir |
+| `Wacs`, `Pem` | wacs.exe yolu, PEM klasörü |
+
+Eski tek siteli `ayar.json` (üst düzeyde `Alan`, `Host`…) ilk açılışta kendiliğinden `Siteler[0]`'a taşınır. DNS doğrulamasında site, win-acme'nin gönderdiği kayıt adından (`_acme-challenge.<alan>`) seçilir; bu yüzden hangi site seçili olursa olsun her sitenin yenilemesi doğru alana yazılır.
 | `TxtOto` | `true`: TXT kayıtları onaysız eklenir/silinir |
 | `Esik` | Bitişe kaç gün kala uyarı verilsin (varsayılan 30) |
 

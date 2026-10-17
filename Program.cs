@@ -26,7 +26,9 @@ static class Program
         {
             var c = Cfg.Yukle();
             var m = Enum.TryParse<Mod>(Environment.GetEnvironmentVariable("SSLYON_MOD"), out var x) ? x : Mod.Onay;
-            Log.W($"SCRIPT {a[0]} id={a[1]} kayıt={a[2]} token={a[3]} mod={m} kullanıcı={Environment.UserName} dizin={Environment.CurrentDirectory}");
+            if (c.Kayittan(a[2]) is not { } st) { Log.W($"SCRIPT HATA: '{a[2]}' hiçbir siteye ait değil (ayar.json → Siteler)"); return 1; }
+            c.S = st;
+            Log.W($"SCRIPT site={c.Alan} {a[0]} id={a[1]} kayıt={a[2]} token={a[3]} mod={m} kullanıcı={Environment.UserName} dizin={Environment.CurrentDirectory}");
             if (a[0] == "delete")
             {
                 if (m != Mod.Prova) { await using var d = await Br.Ac(m); await Natro.TxtSil(d, c, a[3]); }
